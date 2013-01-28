@@ -1,0 +1,28 @@
+# use c and gcc
+language: c
+compiler: gcc
+
+# only build branches on whitelist
+branches:
+  only:
+    - setup-ci
+
+# install dependencies
+before_install:
+  - sudo apt-get install libcairo2-dev  
+  - git clone git://github.com/cmujedi/libguac.git
+  - cd libguac
+  - autoreconf -i
+  - ./configure
+  - make
+  - sudo make install
+  - sudo ldconfig
+
+# before build script, run autoreconf
+before_script: autoreconf -i
+
+# default is "./configure && make && make test", but no tests yet
+script: "./configure --with-init-dir=/etc/init.d && make"
+
+# after build script, run make install
+after_success: sudo make install
