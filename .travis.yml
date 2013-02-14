@@ -1,0 +1,52 @@
+# Set environment variables
+env:
+  global:
+    - secure: "JKWr6EmckZoJZ7CaUWHj9QGhLFXFjBw3/SIjb9Iw2e+ZhCUUEbW9Yv/lAbPg\nYD5fl9nF+3RKwY/2uv6IG2XG7QqDc8ZL52lMlKsRPcXjv0mSpXkQI2ktMc2m\nv5C1xWBEDRuhEypjp9wv0SgLfvqxJQ6ayZeji0LNdmCNyTD7mKY="
+
+  matrix: 
+    - secure: "JKWr6EmckZoJZ7CaUWHj9QGhLFXFjBw3/SIjb9Iw2e+ZhCUUEbW9Yv/lAbPg\nYD5fl9nF+3RKwY/2uv6IG2XG7QqDc8ZL52lMlKsRPcXjv0mSpXkQI2ktMc2m\nv5C1xWBEDRuhEypjp9wv0SgLfvqxJQ6ayZeji0LNdmCNyTD7mKY="
+
+# use c and gcc
+language: c
+compiler: gcc
+
+# only build branches on whitelist
+#branches:
+#  only:
+#    - setup-ci
+
+# install dependencies
+before_install:
+  - sudo apt-get install libcairo2-dev  
+  - git clone git://github.com/cmujedi/libguac.git
+  - cd libguac
+  - autoreconf -i
+  - ./configure
+  - make
+  - sudo make install
+  - sudo ldconfig
+
+# before build script, run autoreconf
+before_script: autoreconf -i
+
+# default is "./configure && make && make test", but no tests yet
+script: "./configure --with-init-dir=/etc/init.d && make"
+
+# after build script, run make install
+after_success: 
+  - sudo make install
+  - curl -s -o output.txt $IRC_TREELOGIC_CHANNEL_TOKEN -d "service=TravisCI" -d "message=$TRAVIS_REPO_SLUG $TRAVIS_BUILD_NUMBER ( $TRAVIS_BRANCH - $TRAVIS_COMMIT ) - Passed" -d "url=https://grove.io/app" -d "icon_url=https://secure.travis-ci.org/$TRAVIS_REPO_SLUG.png"
+
+
+# after build script, run make install
+after_failure: 
+   - curl -s -o output.txt $IRC_TREELOGIC_CHANNEL_TOKEN -d "service=TravisCI" -d "message=$TRAVIS_REPO_SLUG $TRAVIS_BUILD_NUMBER ( $TRAVIS_BRANCH - $TRAVIS_COMMIT ) - Failed" -d "url=https://grove.io/app" -d "icon_url=https://secure.travis-ci.org/$TRAVIS_REPO_SLUG.png"
+
+# add notification email addresses
+notifications:
+  email:
+    recipients:
+      - cmujedi@west.cmu.edu
+  webhooks:
+    secure: "JKWr6EmckZoJZ7CaUWHj9QGhLFXFjBw3/SIjb9Iw2e+ZhCUUEbW9Yv/lAbPg\nYD5fl9nF+3RKwY/2uv6IG2XG7QqDc8ZL52lMlKsRPcXjv0mSpXkQI2ktMc2m\nv5C1xWBEDRuhEypjp9wv0SgLfvqxJQ6ayZeji0LNdmCNyTD7mKY="
+
