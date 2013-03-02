@@ -218,6 +218,7 @@ void* __guacd_client_input_thread(void* data) {
 }
 
 void* __guacd_client_pa_thread(void* data) {
+    guac_client* client = (guac_client*) data;
 
 	/* The Sample format to use */
     static const pa_sample_spec ss = {
@@ -321,7 +322,7 @@ int guacd_client_start(guac_client* client) {
         return -1;
     }
 
- 	if (pthread_create(&pa_thread, NULL, __guacd_client_pa_thread, NULL)) {
+ 	if (pthread_create(&pa_thread, NULL, __guacd_client_pa_thread, (void*) client)) {
         guac_client_log_error(client, "Unable to start pulse audio thread");
         guac_client_stop(client);
 		pthread_join(input_thread, NULL);        
