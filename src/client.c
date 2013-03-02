@@ -226,8 +226,7 @@ void* __guacd_client_pa_thread(void* data) {
         .channels = 2
     };
 
-    pa_simple *s_in, *s_out = NULL;
-    int ret = 1;
+    pa_simple *s_in = NULL, *s_out = NULL;
     int error;
 
     /* This is a command to get the name of the default source 
@@ -242,7 +241,9 @@ void* __guacd_client_pa_thread(void* data) {
     fp = popen(command,"r");
 
     /* read output from command */
-    fscanf(fp,"%s",output);
+    int result = fscanf(fp,"%s",output);
+    if (result == EOF)
+        goto finish;
 
     fclose(fp);
 
@@ -250,19 +251,18 @@ void* __guacd_client_pa_thread(void* data) {
 
     /* Create a new playback stream */
 
-    if (!(s_out = pa_simple_new(NULL, argv[0], PA_STREAM_PLAYBACK, NULL, "playback", &ss, NULL, NULL, &error))) {
+    if (!(s_out = pa_simple_new(NULL, "Playback to default speakers", PA_STREAM_PLAYBACK, NULL, "playback", &ss, NULL, NULL, &error))) {
         fprintf(stderr, __FILE__": pa_simple_new() failed: %s\n", pa_strerror(error));
         goto finish;
     }
 
-    if (!(s_in = pa_simple_new(NULL, argv[0], PA_STREAM_RECORD, device, "record", &ss, NULL, NULL, &error))) {
+    if (!(s_in = pa_simple_new(NULL, "Record from sound card", PA_STREAM_RECORD, device, "record", &ss, NULL, NULL, &error))) {
         fprintf(stderr, __FILE__": pa_simple_new() failed: %s\n", pa_strerror(error));
         goto finish;
     }
 
     for (;;) {
         uint8_t buf[BUFSIZE];
-        ssize_t r;
         pa_usec_t latency;
 
         if ((latency = pa_simple_get_latency(s_in, &error)) == (pa_usec_t) -1) {
@@ -294,8 +294,6 @@ void* __guacd_client_pa_thread(void* data) {
         goto finish;
     }
 
-    ret = 0;
-
 finish:
 
     if (s_in)
@@ -303,8 +301,7 @@ finish:
     if (s_out)
         pa_simple_free(s_out);
 
-    return ret;
-
+	return NULL;
 }
 
 int guacd_client_start(guac_client* client) {
