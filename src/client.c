@@ -48,6 +48,22 @@
 #include "client.h"
 #include "log.h"
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+
+#include <pulse/simple.h>
+#include <pulse/error.h>
+#include <pulse/introspect.h>
+
+#define BUFSIZE 1024
+
 /**
  * Sleep for the given number of milliseconds.
  *
@@ -201,9 +217,100 @@ void* __guacd_client_input_thread(void* data) {
 
 }
 
+void* __guacd_client_pa_thread(void* data) {
+
+	/* The Sample format to use */
+    static const pa_sample_spec ss = {
+        .format = PA_SAMPLE_S16LE,
+        .rate = 44100,
+        .channels = 2
+    };
+
+    pa_simple *s_in, *s_out = NULL;
+    int ret = 1;
+    int error;
+
+    /* This is a command to get the name of the default source 
+       which should look like the following:
+       alsa_output.pci-0000_00_05.0.analog-stereo.monitor
+    */
+
+    FILE *fp;
+    char *command = "pactl list | grep -A2 'Source #' | grep 'Name: .*\\.monitor$' | cut -d\" \" -f2";
+    char output[100];
+
+    fp = popen(command,"r");
+
+    /* read output from command */
+    fscanf(fp,"%s",output);
+
+    fclose(fp);
+
+    char *device = output;
+
+    /* Create a new playback stream */
+
+    if (!(s_out = pa_simple_new(NULL, argv[0], PA_STREAM_PLAYBACK, NULL, "playback", &ss, NULL, NULL, &error))) {
+        fprintf(stderr, __FILE__": pa_simple_new() failed: %s\n", pa_strerror(error));
+        goto finish;
+    }
+
+    if (!(s_in = pa_simple_new(NULL, argv[0], PA_STREAM_RECORD, device, "record", &ss, NULL, NULL, &error))) {
+        fprintf(stderr, __FILE__": pa_simple_new() failed: %s\n", pa_strerror(error));
+        goto finish;
+    }
+
+    for (;;) {
+        uint8_t buf[BUFSIZE];
+        ssize_t r;
+        pa_usec_t latency;
+
+        if ((latency = pa_simple_get_latency(s_in, &error)) == (pa_usec_t) -1) {
+            fprintf(stderr, __FILE__": pa_simple_get_latency() failed: %s\n", pa_strerror(error));
+            goto finish;
+        }
+
+        if ((latency = pa_simple_get_latency(s_out, &error)) == (pa_usec_t) -1) {
+            fprintf(stderr, __FILE__": pa_simple_get_latency() failed: %s\n", pa_strerror(error));
+            goto finish;
+        }
+
+        if (pa_simple_read(s_in, buf, sizeof(buf), &error) < 0) {
+
+            fprintf(stderr, __FILE__": read() failed: %s\n", strerror(errno));
+            goto finish;
+        }
+
+        /* ... and play it */
+        if (pa_simple_write(s_out, buf, sizeof(buf), &error) < 0) {
+            fprintf(stderr, __FILE__": pa_simple_write() failed: %s\n", pa_strerror(error));
+            goto finish;
+        }
+    }
+
+    /* Make sure that every single sample was played */
+    if (pa_simple_drain(s_out, &error) < 0) {
+        fprintf(stderr, __FILE__": pa_simple_drain() failed: %s\n", pa_strerror(error));
+        goto finish;
+    }
+
+    ret = 0;
+
+finish:
+
+    if (s_in)
+        pa_simple_free(s_in);
+    if (s_out)
+        pa_simple_free(s_out);
+
+    return ret;
+
+}
+
 int guacd_client_start(guac_client* client) {
 
     pthread_t input_thread, output_thread;
+	pthread_t pa_thread;
 
     if (pthread_create(&output_thread, NULL, __guacd_client_output_thread, (void*) client)) {
         guac_client_log_error(client, "Unable to start output thread");
@@ -217,9 +324,18 @@ int guacd_client_start(guac_client* client) {
         return -1;
     }
 
+ 	if (pthread_create(&pa_thread, NULL, __guacd_client_pa_thread, NULL)) {
+        guac_client_log_error(client, "Unable to start pulse audio thread");
+        guac_client_stop(client);
+		pthread_join(input_thread, NULL);        
+		pthread_join(output_thread, NULL);		
+        return -1;
+    }
+
     /* Wait for I/O threads */
     pthread_join(input_thread, NULL);
     pthread_join(output_thread, NULL);
+    pthread_join(pa_thread, NULL);
 
     /* Done */
     return 0;
