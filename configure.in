@@ -45,6 +45,9 @@ AC_PROG_CC_C99
 AC_CHECK_LIB([guac], [guac_client_plugin_open],, AC_MSG_ERROR("libguac must be installed first"))
 AC_CHECK_LIB([pthread], [pthread_create])
 
+# Check if PulseAudio  is available
+AC_CHECK_LIB([pulse-simple], [pa_simple_new],, AC_MSG_ERROR("pulse audio must be installed"))
+
 # Checks for header files.
 AC_CHECK_HEADERS([netinet/in.h stdlib.h string.h sys/socket.h syslog.h unistd.h guacamole/client.h])
 
