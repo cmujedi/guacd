@@ -261,7 +261,7 @@ void* __guacd_client_pa_thread(void* data) {
         goto finish;
     }
 
-    for (;;) {
+    while (client->state == GUAC_CLIENT_RUNNING) {
         uint8_t buf[BUFSIZE];
         pa_usec_t latency;
 
