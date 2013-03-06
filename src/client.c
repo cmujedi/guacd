@@ -218,6 +218,7 @@ void* __guacd_client_input_thread(void* data) {
 }
 
 void* __guacd_client_pa_thread(void* data) {
+
     guac_client* client = (guac_client*) data;
 
 	/* The Sample format to use */
@@ -277,7 +278,6 @@ void* __guacd_client_pa_thread(void* data) {
         }
 
         if (pa_simple_read(s_in, buf, sizeof(buf), &error) < 0) {
-
             fprintf(stderr, __FILE__": read() failed: %s\n", strerror(errno));
             goto finish;
         }
@@ -287,6 +287,8 @@ void* __guacd_client_pa_thread(void* data) {
             fprintf(stderr, __FILE__": pa_simple_write() failed: %s\n", pa_strerror(error));
             goto finish;
         }
+        
+        __guacdd_sleep(1);
     }
 
     /* Make sure that every single sample was played */
