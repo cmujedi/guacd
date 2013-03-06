@@ -25,6 +25,7 @@ before_install:
   - make
   - sudo make install
   - sudo ldconfig
+  - cd ..
 
 # before build script, run autoreconf
 before_script: autoreconf -i
