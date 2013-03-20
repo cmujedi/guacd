@@ -287,8 +287,6 @@ void* __guacd_client_pa_thread(void* data) {
             fprintf(stderr, __FILE__": pa_simple_write() failed: %s\n", pa_strerror(error));
             goto finish;
         }
-        
-        __guacdd_sleep(1);
     }
 
     /* Make sure that every single sample was played */
